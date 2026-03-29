@@ -97,9 +97,9 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <div className="flex max-w-[1600px] mx-auto">
+      <div className="max-w-[1600px] mx-auto">
         {/* Kanban Board */}
-        <div className={`flex-1 p-6 transition-all ${selectedApp ? "pr-0" : ""}`}>
+        <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64 text-[--muted]">
               Loading your applications...
@@ -115,15 +115,16 @@ export default function Home() {
           )}
         </div>
 
-        {/* Detail Panel */}
-        {selectedApp && (
-          <JobDetailPanel
-            application={selectedApp}
-            onClose={() => setSelectedApp(null)}
-            onUpdated={handleAppUpdated}
-          />
-        )}
       </div>
+
+      {/* Detail Panel — fixed overlay on the right */}
+      {selectedApp && (
+        <JobDetailPanel
+          application={selectedApp}
+          onClose={() => setSelectedApp(null)}
+          onUpdated={handleAppUpdated}
+        />
+      )}
 
       {/* Add Job Modal */}
       {showAddModal && (

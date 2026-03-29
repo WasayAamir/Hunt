@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Application, api } from "@/lib/api";
 import {
   X,
@@ -14,6 +14,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  Upload,
+  FileText,
 } from "lucide-react";
 
 interface Props {
@@ -23,7 +25,14 @@ interface Props {
 }
 
 export function JobDetailPanel({ application, onClose, onUpdated }: Props) {
+  const [editingRole, setEditingRole] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(false);
+  const [roleValue, setRoleValue] = useState(application.role);
+  const [companyValue, setCompanyValue] = useState(application.company);
   const [experienceInput, setExperienceInput] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeParsing, setResumeParsing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [nameInput, setNameInput] = useState("");
   const [backgroundInput, setBackgroundInput] = useState("");
   const [bulletsLoading, setBulletsLoading] = useState(false);
@@ -32,6 +41,30 @@ export function JobDetailPanel({ application, onClose, onUpdated }: Props) {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [showBulletForm, setShowBulletForm] = useState(false);
   const [showOutreachForm, setShowOutreachForm] = useState(false);
+
+  const handleResumeUpload = async (file: File) => {
+    setResumeFile(file);
+    setResumeParsing(true);
+    try {
+      const { text } = await api.parseResume(file);
+      setExperienceInput(text);
+    } catch (err) {
+      console.error("Failed to parse resume:", err);
+    } finally {
+      setResumeParsing(false);
+    }
+  };
+
+  const saveField = async (field: "role" | "company", value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === application[field]) return;
+    try {
+      const updated = await api.updateApplication(application.id, { [field]: trimmed } as Partial<Application>);
+      onUpdated(updated);
+    } catch (err) {
+      console.error("Failed to update:", err);
+    }
+  };
 
   const handleGenerateBullets = async () => {
     if (!experienceInput.trim()) return;
@@ -86,17 +119,47 @@ export function JobDetailPanel({ application, onClose, onUpdated }: Props) {
   };
 
   return (
-    <div className="w-[400px] flex-shrink-0 border-l border-[--border] bg-[--card] h-[calc(100vh-73px)] overflow-y-auto">
+    <div className="fixed top-[73px] right-0 w-[420px] border-l border-[--border] bg-[--card] h-[calc(100vh-73px)] overflow-y-auto z-40 shadow-2xl">
       {/* Header */}
       <div className="sticky top-0 bg-[--card] z-10 p-5 border-b border-[--border]">
         <div className="flex items-start justify-between">
           <div className="flex-1 pr-4">
-            <p className="text-xs text-[--accent] font-semibold uppercase tracking-wide mb-1">
-              {application.company}
-            </p>
-            <h2 className="text-lg font-bold leading-tight">
-              {application.role}
-            </h2>
+            {editingCompany ? (
+              <input
+                autoFocus
+                value={companyValue}
+                onChange={(e) => setCompanyValue(e.target.value)}
+                onBlur={() => { setEditingCompany(false); saveField("company", companyValue); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setEditingCompany(false); saveField("company", companyValue); } if (e.key === "Escape") { setEditingCompany(false); setCompanyValue(application.company); } }}
+                className="text-xs font-semibold uppercase tracking-wide text-[--accent] bg-transparent border-b border-[--accent] outline-none w-full mb-1"
+              />
+            ) : (
+              <p
+                className="text-xs text-[--accent] font-semibold uppercase tracking-wide mb-1 cursor-pointer hover:opacity-70"
+                onClick={() => setEditingCompany(true)}
+                title="Click to edit"
+              >
+                {application.company}
+              </p>
+            )}
+            {editingRole ? (
+              <input
+                autoFocus
+                value={roleValue}
+                onChange={(e) => setRoleValue(e.target.value)}
+                onBlur={() => { setEditingRole(false); saveField("role", roleValue); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { setEditingRole(false); saveField("role", roleValue); } if (e.key === "Escape") { setEditingRole(false); setRoleValue(application.role); } }}
+                className="text-lg font-bold leading-tight bg-transparent border-b border-[--border] outline-none w-full"
+              />
+            ) : (
+              <h2
+                className="text-lg font-bold leading-tight cursor-pointer hover:opacity-70"
+                onClick={() => setEditingRole(true)}
+                title="Click to edit"
+              >
+                {application.role}
+              </h2>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -181,28 +244,46 @@ export function JobDetailPanel({ application, onClose, onUpdated }: Props) {
             <div className="px-4 pb-4 space-y-3">
               {!application.resume_bullets ? (
                 <>
-                  <textarea
-                    value={experienceInput}
-                    onChange={(e) => setExperienceInput(e.target.value)}
-                    placeholder="Paste your experience here — current resume, projects, internship work..."
-                    rows={4}
-                    className="w-full bg-[--background] border border-[--border] rounded-lg px-3 py-2 text-sm outline-none focus:border-[--accent] resize-none transition-colors"
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleResumeUpload(f); }}
                   />
+                  {resumeFile && experienceInput ? (
+                    <div className="flex items-center gap-2 bg-[--background] border border-[--border] rounded-lg px-3 py-2 text-sm">
+                      <FileText className="w-4 h-4 text-[--accent] flex-shrink-0" />
+                      <span className="truncate text-[--muted]">{resumeFile.name}</span>
+                      <button
+                        onClick={() => { setResumeFile(null); setExperienceInput(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        className="ml-auto text-[--muted] hover:text-[--foreground]"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={resumeParsing}
+                      className="w-full flex flex-col items-center gap-2 border border-dashed border-[--border] hover:border-[--accent] rounded-lg px-3 py-5 text-sm text-[--muted] hover:text-[--foreground] transition-colors disabled:opacity-50"
+                    >
+                      {resumeParsing ? (
+                        <><Loader2 className="w-5 h-5 animate-spin" /><span>Reading PDF...</span></>
+                      ) : (
+                        <><Upload className="w-5 h-5" /><span>Upload Resume PDF</span></>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={handleGenerateBullets}
                     disabled={bulletsLoading || !experienceInput.trim()}
                     className="flex items-center gap-2 bg-[--accent] hover:bg-[--accent-hover] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center"
                   >
                     {bulletsLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Generating...
-                      </>
+                      <><Loader2 className="w-4 h-4 animate-spin" />Generating...</>
                     ) : (
-                      <>
-                        <Sparkles className="w-4 h-4" />
-                        Generate Tailored Bullets
-                      </>
+                      <><Sparkles className="w-4 h-4" />Generate Tailored Bullets</>
                     )}
                   </button>
                 </>

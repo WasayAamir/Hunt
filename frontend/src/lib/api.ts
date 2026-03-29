@@ -77,6 +77,17 @@ export const api = {
     return res.json();
   },
 
+  async parseResume(file: File): Promise<{ text: string }> {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_BASE}/api/parse-resume`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) throw new Error("Failed to parse resume PDF");
+    return res.json();
+  },
+
   async generateBullets(
     applicationId: string,
     userExperience: string

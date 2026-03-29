@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
+import io
 from database import get_db
 from models import Application
 from schemas import (
@@ -22,6 +23,25 @@ from services.ai_service import (
 router = APIRouter(prefix="/api", tags=["ai"])
 
 
+@router.post("/parse-resume")
+async def parse_resume(file: UploadFile = File(...)):
+    """Extract text from an uploaded PDF resume."""
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+    try:
+        from pypdf import PdfReader
+        contents = await file.read()
+        reader = PdfReader(io.BytesIO(contents))
+        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+        if not text.strip():
+            raise HTTPException(status_code=422, detail="Could not extract text from PDF")
+        return {"text": text.strip()}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to parse PDF: {str(e)}")
+
+
 @router.post("/parse-job", response_model=ApplicationResponse)
 async def parse_job(req: ParseJobRequest, db: Session = Depends(get_db)):
     """Scrape a job URL, parse it with AI, and create an application entry."""
@@ -31,7 +51,7 @@ async def parse_job(req: ParseJobRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(e)}")
 
     try:
-        parsed = await parse_job_description(raw_text)
+        parsed = await parse_job_description(raw_text, url=req.url)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to parse job: {str(e)}")
 
