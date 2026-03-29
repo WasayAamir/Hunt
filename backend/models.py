@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, JSON, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, DateTime, JSON, Integer, Enum as SQLEnum
 from sqlalchemy.sql import func
 from database import Base
 import enum
@@ -34,6 +34,8 @@ class Application(Base):
     matched_skills = Column(JSON, nullable=True)  # Skills user has
     missing_skills = Column(JSON, nullable=True)  # Skill gaps
     resume_bullets = Column(JSON, nullable=True)  # AI-generated tailored bullets
+    ats_score = Column(Integer, nullable=True)     # ATS keyword match score 0-100
+    ats_breakdown = Column(JSON, nullable=True)    # Per-category ATS breakdown
     outreach_draft = Column(Text, nullable=True)  # AI-generated cold email
     notes = Column(Text, nullable=True)
     applied_date = Column(DateTime, nullable=True)

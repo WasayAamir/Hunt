@@ -38,6 +38,16 @@ class GenerateBulletsRequest(BaseModel):
     user_experience: str  # User's raw resume / experience summary
 
 
+class ATSScanRequest(BaseModel):
+    application_id: str
+    resume_text: str
+
+
+class ATSScanResponse(BaseModel):
+    ats_score: int
+    ats_breakdown: dict
+
+
 class GenerateOutreachRequest(BaseModel):
     application_id: str
     user_name: str
@@ -69,6 +79,8 @@ class ApplicationResponse(BaseModel):
     matched_skills: Optional[list[str]]
     missing_skills: Optional[list[str]]
     resume_bullets: Optional[list[str]]
+    ats_score: Optional[int]
+    ats_breakdown: Optional[dict]
     outreach_draft: Optional[str]
     notes: Optional[str]
     applied_date: Optional[datetime]
@@ -83,6 +95,8 @@ class BulletsResponse(BaseModel):
     bullets: list[str]
     skill_matches: list[str]
     skill_gaps: list[str]
+    ats_score: int
+    ats_breakdown: Optional[dict] = None
 
 
 class OutreachResponse(BaseModel):

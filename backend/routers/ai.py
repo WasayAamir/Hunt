@@ -8,6 +8,8 @@ from schemas import (
     ParsedJobResponse,
     GenerateBulletsRequest,
     BulletsResponse,
+    ATSScanRequest,
+    ATSScanResponse,
     GenerateOutreachRequest,
     OutreachResponse,
     CreateApplicationRequest,
@@ -17,6 +19,7 @@ from services.scraper import scrape_job_posting
 from services.ai_service import (
     parse_job_description,
     generate_resume_bullets,
+    scan_resume_ats,
     generate_outreach_email,
 )
 
@@ -71,6 +74,26 @@ async def parse_job(req: ParseJobRequest, db: Session = Depends(get_db)):
     return app
 
 
+@router.post("/ats-scan", response_model=ATSScanResponse)
+async def ats_scan(req: ATSScanRequest, db: Session = Depends(get_db)):
+    """Scan a resume PDF against a saved job and return an ATS score + breakdown."""
+    app = db.query(Application).filter(Application.id == req.application_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    result = await scan_resume_ats(
+        job_description=app.description or "",
+        requirements=app.requirements or [],
+        resume_text=req.resume_text,
+    )
+
+    app.ats_score = result["ats_score"]
+    app.ats_breakdown = result["ats_breakdown"]
+    db.commit()
+
+    return result
+
+
 @router.post("/generate-bullets", response_model=BulletsResponse)
 async def generate_bullets(req: GenerateBulletsRequest, db: Session = Depends(get_db)):
     """Generate tailored resume bullets for a tracked application."""
@@ -88,6 +111,8 @@ async def generate_bullets(req: GenerateBulletsRequest, db: Session = Depends(ge
     app.resume_bullets = result.get("bullets", [])
     app.matched_skills = result.get("skill_matches", [])
     app.missing_skills = result.get("skill_gaps", [])
+    app.ats_score = result.get("ats_score", 0)
+    app.ats_breakdown = result.get("ats_breakdown")
     db.commit()
 
     return BulletsResponse(**result)

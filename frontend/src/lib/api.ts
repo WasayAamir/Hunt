@@ -13,6 +13,16 @@ export interface Application {
   matched_skills: string[] | null;
   missing_skills: string[] | null;
   resume_bullets: string[] | null;
+  ats_score: number | null;
+  ats_breakdown: {
+    required_skills: { matched: string[]; missing: string[] };
+    preferred_skills: { matched: string[]; missing: string[] };
+    tools: { matched: string[]; missing: string[] };
+    experience: { matched: string[]; missing: string[] };
+    education?: { matched: string[]; missing: string[] };
+    certifications?: { matched: string[]; missing: string[] };
+    suggestions: string[];
+  } | null;
   outreach_draft: string | null;
   notes: string | null;
   applied_date: string | null;
@@ -88,19 +98,19 @@ export const api = {
     return res.json();
   },
 
-  async generateBullets(
+  async atsScan(
     applicationId: string,
-    userExperience: string
-  ): Promise<{ bullets: string[]; skill_matches: string[]; skill_gaps: string[] }> {
-    const res = await fetch(`${API_BASE}/api/generate-bullets`, {
+    resumeText: string
+  ): Promise<{ ats_score: number; ats_breakdown: Application["ats_breakdown"] }> {
+    const res = await fetch(`${API_BASE}/api/ats-scan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         application_id: applicationId,
-        user_experience: userExperience,
+        resume_text: resumeText,
       }),
     });
-    if (!res.ok) throw new Error("Failed to generate bullets");
+    if (!res.ok) throw new Error("Failed to run ATS scan");
     return res.json();
   },
 
