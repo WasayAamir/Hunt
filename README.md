@@ -33,7 +33,7 @@ Paste a job posting URL → get tailored resume bullets, cold outreach drafts, a
 
 **1. Clone the repo**
 ```bash
-git clone https://github.com/connectedf/hunt.git
+git clone https://github.com/yourname/hunt.git
 cd hunt
 ```
 
